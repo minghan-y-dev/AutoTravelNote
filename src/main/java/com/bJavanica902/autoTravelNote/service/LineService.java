@@ -99,7 +99,7 @@ public class LineService {
                 if (msg.startsWith("https")) {
                     //text(event.getString("replyToken"), REPLY, "請輸入都道府縣及分類，例如沖繩-吃。先是地點，後是分類，以-分開。");
                     result = "1";
-                } else if (msg.contains("-") && containsCity(msg)) {
+                } else if (msg.contains("/") && containsCity(msg)) {
                     result = "2_" + findPrefecture(msg);
                 } else {
                     text(event.getString("replyToken"), REPLY, "請依規定輸入訊息");
@@ -162,7 +162,7 @@ public class LineService {
     }
 
     private boolean containsCity(String inputs) {
-        String[] input = inputs.split("-");
+        String[] input = inputs.split("/");
         String city = input[0];
 
         // 判斷是否為都道府縣
@@ -179,7 +179,7 @@ public class LineService {
     }
 
     private String findPrefecture(String inputs) {
-        String[] input = inputs.split("-");
+        String[] input = inputs.split("/");
         String name = input[0];
 
         // 如果傳入的是都道府縣名稱
@@ -194,6 +194,6 @@ public class LineService {
                 return prefecture;
             }
         }
-        return null; // 如果找不到對應的都道府縣，返回 null
+        return ""; // 如果找不到對應的都道府縣，返回空字串
     }
 }

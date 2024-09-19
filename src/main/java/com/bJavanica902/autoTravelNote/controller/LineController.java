@@ -44,15 +44,14 @@ public class LineController {
         } else if (result.startsWith("2")) {
             if (StringUtils.isNoneBlank(url)) {
                 String lineId = lineService.crapUserId(event);
-                String[] input = event.getJSONObject("message").getString("text").split("-");
+                String[] input = event.getJSONObject("message").getString("text").split("/");
                 String area = result.substring(2);
                 String cate = input[1];
-                Note note = Note.builder().dateTime(LocalDateTime.now()).area(area).cate(cate).url(url).lineId(lineId).build();
+                String tag = input[2];
+                Note note = Note.builder().dateTime(LocalDateTime.now()).area(area).cate(cate).tag(tag).url(url).lineId(lineId).build();
 
                 boolean res = googleSheetService.saveToGoogle(note);
-                if (res) {
-                    lineService.text(event.getString("replyToken"), "reply", "儲存成功");
-                } else {
+                if (!res) {
                     lineService.text(event.getString("replyToken"), "reply", "儲存失敗");
                 }
 

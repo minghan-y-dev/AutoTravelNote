@@ -24,13 +24,14 @@ public class GoogleSheetService {
 
     @Value("${google.spreadsheet.id}")
     private String spreadSheetId;
+    @Value("${google.credentials.file}")
+    private String credentialsFile;
     private final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private final String APPLICATION_NAME = "AutoTravelNote";
-    private final String CREDENTIALS_FILE = "autotravelnote-4e46df9095c8.json";
 
     public boolean saveToGoogle(Note note) {
         boolean result = false;
-        String range = note.getArea() + "!A1:D";
+        String range = note.getArea() + "!A1:E";
 
         for (int attempt = 0; attempt < 3; attempt++) {
             try {
@@ -45,6 +46,7 @@ public class GoogleSheetService {
                 List<Object> newRow = Arrays.asList(
                         formattedDateTime, // 日期時間轉為字串
                         note.getCate(), // 分類
+                        note.getTag(), // 標籤
                         note.getUrl(), // 網址
                         note.getLineId() // LineId
                 );
@@ -55,7 +57,7 @@ public class GoogleSheetService {
                 // 插入新資料
                 ValueRange body = new ValueRange()
                         .setValues(Arrays.asList(newRow));
-                String insertRange = note.getArea() + "!A" + rowIndex + ":D" + rowIndex; // 使用 UTF-8 編碼的工作表名稱
+                String insertRange = note.getArea() + "!A" + rowIndex + ":E" + rowIndex; // 使用 UTF-8 編碼的工作表名稱
                 service.spreadsheets().values()
                         .update(spreadSheetId, insertRange, body)
                         .setValueInputOption("RAW")
@@ -79,7 +81,7 @@ public class GoogleSheetService {
 
     private Sheets getSheetsService() throws IOException, GeneralSecurityException {
         // 讀取憑證
-        InputStream credentialsStream = GoogleSheetService.class.getClassLoader().getResourceAsStream(CREDENTIALS_FILE);
+        InputStream credentialsStream = GoogleSheetService.class.getClassLoader().getResourceAsStream(credentialsFile);
 
         // 建立 GoogleCredentials
         GoogleCredentials credentials = GoogleCredentials.fromStream(credentialsStream)
