@@ -26,7 +26,7 @@ public class LineController {
     // Note Attr
     private String url;
 
-    @GetMapping("/test")
+    @PostMapping("/test")
     public ResponseEntity test() {
         return new ResponseEntity("Hello LineBot", HttpStatus.OK);
     }
