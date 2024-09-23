@@ -46,15 +46,15 @@ public class LineController {
                 // 取得lineId
                 String lineId = lineService.crapUserId(event);
 
-                // 從msg取得分類/標籤
+                // 從msg取得分類/標籤 宜蘭/景點/室內免費考古
                 String[] input = event.getJSONObject("message").getString("text").split("/");
                 String cate = input[1];
                 String tag = input[2];
 
-                // 從判斷結果取得國別及區域
+                // 從判斷結果取得國別及區域 2_TW_宜蘭
                 String[] process = result.split("_");
-                String nation = process[0];
-                String area = process[1];
+                String nation = process[1];
+                String area = process[2];
 
                 Note note = Note.builder().dateTime(LocalDateTime.now()).area(area).cate(cate).tag(tag).url(url).lineId(lineId).build();
 
