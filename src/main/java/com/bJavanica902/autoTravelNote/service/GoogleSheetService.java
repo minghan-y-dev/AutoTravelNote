@@ -22,16 +22,27 @@ import java.util.List;
 @Log4j2
 public class GoogleSheetService {
 
-    @Value("${google.spreadsheet.id}")
-    private String spreadSheetId;
+    @Value("${google.jp.spreadsheet.id}")
+    private String jpSpreadSheetId;
+    @Value("${google.tw.spreadsheet.id}")
+    private String twSpreadSheetId;
     @Value("${google.credentials.file}")
     private String credentialsFile;
     private final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private final String APPLICATION_NAME = "AutoTravelNote";
 
-    public boolean saveToGoogle(Note note) {
+    public boolean saveToGoogle(Note note, String nation) {
         boolean result = false;
         String range = note.getArea() + "!A1:E";
+        String spreadSheetId = "";
+        switch (nation) {
+            case "JP":
+                spreadSheetId = jpSpreadSheetId;
+                break;
+            case "TW":
+                spreadSheetId = twSpreadSheetId;
+                break;
+        }
 
         for (int attempt = 0; attempt < 3; attempt++) {
             try {

@@ -43,14 +43,22 @@ public class LineController {
             url = event.getJSONObject("message").getString("text");
         } else if (result.startsWith("2")) {
             if (StringUtils.isNoneBlank(url)) {
+                // 取得lineId
                 String lineId = lineService.crapUserId(event);
+
+                // 從msg取得分類/標籤
                 String[] input = event.getJSONObject("message").getString("text").split("/");
-                String area = result.substring(2);
                 String cate = input[1];
                 String tag = input[2];
+
+                // 從判斷結果取得國別及區域
+                String[] process = result.split("_");
+                String nation = process[0];
+                String area = process[1];
+
                 Note note = Note.builder().dateTime(LocalDateTime.now()).area(area).cate(cate).tag(tag).url(url).lineId(lineId).build();
 
-                boolean res = googleSheetService.saveToGoogle(note);
+                boolean res = googleSheetService.saveToGoogle(note, nation);
                 if (!res) {
                     lineService.text(event.getString("replyToken"), "reply", "儲存失敗");
                 }
