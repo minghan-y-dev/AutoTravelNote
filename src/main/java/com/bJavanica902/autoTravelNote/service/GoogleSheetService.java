@@ -33,7 +33,7 @@ public class GoogleSheetService {
 
     public boolean saveToGoogle(Note note, String nation) {
         boolean result = false;
-        String range = note.getArea() + "!A1:E";
+        String range = note.getArea() + "!A1:F";
         String spreadSheetId = "";
         switch (nation) {
             case "JP":
@@ -68,13 +68,13 @@ public class GoogleSheetService {
                 // 插入新資料
                 ValueRange body = new ValueRange()
                         .setValues(Arrays.asList(newRow));
-                String insertRange = note.getArea() + "!A" + rowIndex + ":E" + rowIndex; // 使用 UTF-8 編碼的工作表名稱
+                String insertRange = note.getArea() + "!B" + rowIndex + ":F" + rowIndex; // 使用 UTF-8 編碼的工作表名稱
                 service.spreadsheets().values()
                         .update(spreadSheetId, insertRange, body)
                         .setValueInputOption("RAW")
                         .execute();
 
-                log.info("Success, " + note.toString());
+                log.info("Save success");
                 result = true;
                 break; // 成功後退出重試循環
             } catch (Exception e) {

@@ -3,6 +3,7 @@ package com.bJavanica902.autoTravelNote.controller;
 import com.bJavanica902.autoTravelNote.entity.Note;
 import com.bJavanica902.autoTravelNote.service.GoogleSheetService;
 import com.bJavanica902.autoTravelNote.service.LineService;
+import com.bJavanica902.autoTravelNote.service.NoteService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang3.StringUtils;
@@ -22,6 +23,7 @@ public class LineController {
 
     private final LineService lineService;
     private final GoogleSheetService googleSheetService;
+    private final NoteService noteService;
 
     // Note Attr
     private String url;
@@ -46,17 +48,11 @@ public class LineController {
                 // 取得lineId
                 String lineId = lineService.crapUserId(event);
 
-                // 從msg取得分類/標籤 宜蘭/景點/室內免費考古
-                String[] input = event.getJSONObject("message").getString("text").split("/");
-                String cate = input[1];
-                String tag = input[2];
+                Note note = noteService.createNote(this.url, lineId, event.getJSONObject("message").getString("text"), result);
 
-                // 從判斷結果取得國別及區域 2_TW_宜蘭
+                // 從判斷結果取得國別 2_TW_宜蘭
                 String[] process = result.split("_");
                 String nation = process[1];
-                String area = process[2];
-
-                Note note = Note.builder().dateTime(LocalDateTime.now()).area(area).cate(cate).tag(tag).url(url).lineId(lineId).build();
 
                 boolean res = googleSheetService.saveToGoogle(note, nation);
                 if (!res) {
