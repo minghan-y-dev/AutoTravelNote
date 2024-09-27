@@ -55,7 +55,9 @@ public class LineController {
                 String nation = process[1];
 
                 boolean res = googleSheetService.saveToGoogle(note, nation);
-                if (!res) {
+                if (res) {
+                    googleSheetService.addLog(note, nation);
+                } else {
                     lineService.text(event.getString("replyToken"), "reply", "儲存失敗");
                 }
 

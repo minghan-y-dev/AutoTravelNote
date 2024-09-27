@@ -90,6 +90,62 @@ public class GoogleSheetService {
         return result;
     }
 
+    /*
+        在Google Sheet中留儲存紀錄
+     */
+    public void addLog(Note note, String nation) {
+        String range = "Log!A1:C";
+
+        String spreadSheetId = "";
+        switch (nation) {
+            case "JP":
+                spreadSheetId = jpSpreadSheetId;
+                break;
+            case "TW":
+                spreadSheetId = twSpreadSheetId;
+                break;
+        }
+
+        for (int attempt = 0; attempt < 3; attempt++) {
+            try {
+                Sheets service = getSheetsService();
+                ValueRange responses = service.spreadsheets().values().get(spreadSheetId, range).execute();
+                List<List<Object>> values = responses.getValues();
+
+                // 使用日期時間格式化器將 LocalDateTime 轉換為字串
+                String formattedDateTime = note.getDateTime().format(DATE_TIME_FORMATTER);
+
+                // 準備要插入的新資料
+                List<Object> newRow = Arrays.asList(
+                        formattedDateTime, // 日期時間轉為字串
+                        note.getArea(), // 地區
+                        note.getLineId() // LineId
+                );
+
+                // 決定插入的行號
+                int rowIndex = (values != null && !values.isEmpty()) ? values.size() + 1 : 2;
+
+                // 插入新資料
+                ValueRange body = new ValueRange()
+                        .setValues(Arrays.asList(newRow));
+                String insertRange = "Log!A" + rowIndex + ":C" + rowIndex; // 使用 UTF-8 編碼的工作表名稱
+                service.spreadsheets().values()
+                        .update(spreadSheetId, insertRange, body)
+                        .setValueInputOption("RAW")
+                        .execute();
+                break;
+
+            } catch (Exception e) {
+                log.error("Failed attempt " + (attempt + 1) + ", " + e.getMessage());
+                try {
+                    Thread.sleep(30000); // 等待30秒後重試
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt(); // 恢復中斷狀態
+                }
+            }
+        }
+    }
+
     private Sheets getSheetsService() throws IOException, GeneralSecurityException {
         // 讀取憑證
         InputStream credentialsStream = GoogleSheetService.class.getClassLoader().getResourceAsStream(credentialsFile);
