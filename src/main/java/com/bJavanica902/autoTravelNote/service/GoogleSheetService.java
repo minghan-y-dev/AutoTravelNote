@@ -4,7 +4,7 @@ import com.bJavanica902.autoTravelNote.entity.Note;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.json.gson.GsonFactory;
 import com.google.api.services.sheets.v4.Sheets;
-import com.google.api.services.sheets.v4.model.ValueRange;
+import com.google.api.services.sheets.v4.model.*;
 import com.google.auth.http.HttpCredentialsAdapter;
 import com.google.auth.oauth2.GoogleCredentials;
 import lombok.extern.log4j.Log4j2;
@@ -16,6 +16,7 @@ import java.io.InputStream;
 import java.security.GeneralSecurityException;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 @Service
@@ -33,8 +34,9 @@ public class GoogleSheetService {
 
     public boolean saveToGoogle(Note note, String nation) {
         boolean result = false;
-        String range = note.getArea() + "!A1:F";
+        String sheetTitle = note.getArea(); // 取得 Sheet 名稱
         String spreadSheetId = "";
+
         switch (nation) {
             case "JP":
                 spreadSheetId = jpSpreadSheetId;
@@ -47,36 +49,45 @@ public class GoogleSheetService {
         for (int attempt = 0; attempt < 3; attempt++) {
             try {
                 Sheets service = getSheetsService();
-                ValueRange responses = service.spreadsheets().values().get(spreadSheetId, range).execute();
-                List<List<Object>> values = responses.getValues();
 
                 // 使用日期時間格式化器將 LocalDateTime 轉換為字串
                 String formattedDateTime = note.getDateTime().format(DATE_TIME_FORMATTER);
 
-                // 準備要插入的新資料
-                List<Object> newRow = Arrays.asList(
-                        formattedDateTime, // 日期時間轉為字串
-                        note.getCate(), // 分類
-                        note.getTag(), // 標籤
-                        note.getUrl(), // 網址
-                        note.getLineId() // LineId
+                // 準備 CellData 格式的資料（對應 B~F 欄）
+                List<CellData> cellDataList = Arrays.asList(
+                        new CellData().setUserEnteredValue(new ExtendedValue().setStringValue(formattedDateTime)), // B 時間
+                        new CellData().setUserEnteredValue(new ExtendedValue().setStringValue(note.getCate())),    // C 分類
+                        new CellData().setUserEnteredValue(new ExtendedValue().setStringValue(note.getTag())),     // D 標籤
+                        new CellData().setUserEnteredValue(new ExtendedValue().setStringValue(note.getUrl())),     // E 網址
+                        new CellData().setUserEnteredValue(new ExtendedValue().setStringValue(note.getLineId()))   // F LineId
                 );
 
-                // 決定插入的行號
-                int rowIndex = (values != null && !values.isEmpty()) ? values.size() + 1 : 2;
+                // 插入第二行（index 1，因為 index 從 0 開始）
+                Request insertRowRequest = new Request().setInsertDimension(new InsertDimensionRequest()
+                        .setRange(new DimensionRange()
+                                .setSheetId(getSheetIdByTitle(service, spreadSheetId, sheetTitle)) // 透過 title 找 sheetId
+                                .setDimension("ROWS")
+                                .setStartIndex(1)
+                                .setEndIndex(2))
+                        .setInheritFromBefore(true));
 
-                // 插入新資料
-                ValueRange body = new ValueRange()
-                        .setValues(Arrays.asList(newRow));
-                String insertRange = note.getArea() + "!B" + rowIndex + ":F" + rowIndex; // 使用 UTF-8 編碼的工作表名稱
-                service.spreadsheets().values()
-                        .update(spreadSheetId, insertRange, body)
-                        .setValueInputOption("RAW")
-                        .execute();
+                // 寫入資料到第二行 B~F
+                Request updateCellsRequest = new Request().setUpdateCells(new UpdateCellsRequest()
+                        .setStart(new GridCoordinate()
+                                .setSheetId(getSheetIdByTitle(service, spreadSheetId, sheetTitle))
+                                .setRowIndex(1)
+                                .setColumnIndex(1)) // 從 B 欄開始（A 是 index 0）
+                        .setRows(Collections.singletonList(new RowData().setValues(cellDataList)))
+                        .setFields("userEnteredValue"));
 
+                // 一起 batchUpdate 執行
+                BatchUpdateSpreadsheetRequest batchRequest = new BatchUpdateSpreadsheetRequest()
+                        .setRequests(Arrays.asList(insertRowRequest, updateCellsRequest));
+
+                service.spreadsheets().batchUpdate(spreadSheetId, batchRequest).execute();
                 log.info("Save success");
                 result = true;
-                break; // 成功後退出重試循環
+                break;
             } catch (Exception e) {
                 log.error("Failed attempt " + (attempt + 1) + ", " + e.getMessage());
                 try {
@@ -90,13 +101,14 @@ public class GoogleSheetService {
         return result;
     }
 
+
     /*
         在Google Sheet中留儲存紀錄
      */
     public void addLog(Note note, String nation) {
-        String range = "Log!A1:C";
-
+        String sheetTitle = "Log"; // title 名稱
         String spreadSheetId = "";
+
         switch (nation) {
             case "JP":
                 spreadSheetId = jpSpreadSheetId;
@@ -109,30 +121,56 @@ public class GoogleSheetService {
         for (int attempt = 0; attempt < 3; attempt++) {
             try {
                 Sheets service = getSheetsService();
-                ValueRange responses = service.spreadsheets().values().get(spreadSheetId, range).execute();
-                List<List<Object>> values = responses.getValues();
 
-                // 使用日期時間格式化器將 LocalDateTime 轉換為字串
+                // 取得 spreadsheet 所有 sheet
+                Spreadsheet spreadsheet = service.spreadsheets().get(spreadSheetId).execute();
+                Integer sheetId = null;
+
+                for (Sheet sheet : spreadsheet.getSheets()) {
+                    if (sheet.getProperties().getTitle().equals(sheetTitle)) {
+                        sheetId = sheet.getProperties().getSheetId();
+                        break;
+                    }
+                }
+
+                if (sheetId == null) {
+                    throw new RuntimeException("找不到名稱為 " + sheetTitle + " 的工作表");
+                }
+
+                // 準備新資料
                 String formattedDateTime = note.getDateTime().format(DATE_TIME_FORMATTER);
-
-                // 準備要插入的新資料
-                List<Object> newRow = Arrays.asList(
-                        formattedDateTime, // 日期時間轉為字串
-                        note.getArea(), // 地區
-                        note.getLineId() // LineId
+                List<CellData> cellDataList = Arrays.asList(
+                        new CellData().setUserEnteredValue(new ExtendedValue().setStringValue(formattedDateTime)),
+                        new CellData().setUserEnteredValue(new ExtendedValue().setStringValue(note.getArea())),
+                        new CellData().setUserEnteredValue(new ExtendedValue().setStringValue(note.getLineId()))
                 );
 
-                // 決定插入的行號
-                int rowIndex = (values != null && !values.isEmpty()) ? values.size() + 1 : 2;
+                // 插入第 2 行
+                InsertDimensionRequest insertRowRequest = new InsertDimensionRequest()
+                        .setRange(new DimensionRange()
+                                .setSheetId(sheetId)
+                                .setDimension("ROWS")
+                                .setStartIndex(1)  // row index = 1 => 第 2 行
+                                .setEndIndex(2))
+                        .setInheritFromBefore(true);
 
-                // 插入新資料
-                ValueRange body = new ValueRange()
-                        .setValues(Arrays.asList(newRow));
-                String insertRange = "Log!A" + rowIndex + ":C" + rowIndex; // 使用 UTF-8 編碼的工作表名稱
-                service.spreadsheets().values()
-                        .update(spreadSheetId, insertRange, body)
-                        .setValueInputOption("RAW")
-                        .execute();
+                // 更新第 2 行資料
+                UpdateCellsRequest updateCellsRequest = new UpdateCellsRequest()
+                        .setStart(new GridCoordinate()
+                                .setSheetId(sheetId)
+                                .setRowIndex(1)
+                                .setColumnIndex(0))
+                        .setRows(Collections.singletonList(new RowData().setValues(cellDataList)))
+                        .setFields("userEnteredValue");
+
+                // 打包批次請求
+                BatchUpdateSpreadsheetRequest batchRequest = new BatchUpdateSpreadsheetRequest()
+                        .setRequests(Arrays.asList(
+                                new Request().setInsertDimension(insertRowRequest),
+                                new Request().setUpdateCells(updateCellsRequest)
+                        ));
+
+                service.spreadsheets().batchUpdate(spreadSheetId, batchRequest).execute();
                 break;
 
             } catch (Exception e) {
@@ -140,11 +178,32 @@ public class GoogleSheetService {
                 try {
                     Thread.sleep(30000); // 等待30秒後重試
                 } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt(); // 恢復中斷狀態
+                    Thread.currentThread().interrupt();
                 }
             }
         }
     }
+
+
+    public void printSheetId(String nation) throws Exception{
+        Sheets service = getSheetsService();
+
+        String spreadSheetId = "";
+        switch (nation) {
+            case "JP":
+                spreadSheetId = jpSpreadSheetId;
+                break;
+            case "TW":
+                spreadSheetId = twSpreadSheetId;
+                break;
+        }
+
+        Spreadsheet spreadsheet = service.spreadsheets().get(spreadSheetId).execute();
+        for (Sheet sheet : spreadsheet.getSheets()) {
+            System.out.println(sheet.getProperties().getTitle() + " : " + sheet.getProperties().getSheetId());
+        }
+    }
+
 
     private Sheets getSheetsService() throws IOException, GeneralSecurityException {
         // 讀取憑證
@@ -158,6 +217,16 @@ public class GoogleSheetService {
         return new Sheets.Builder(GoogleNetHttpTransport.newTrustedTransport(), GsonFactory.getDefaultInstance(), new HttpCredentialsAdapter(credentials))
                 .setApplicationName(APPLICATION_NAME)
                 .build();
+    }
+
+    private Integer getSheetIdByTitle(Sheets service, String spreadSheetId, String sheetTitle) throws IOException {
+        Spreadsheet spreadsheet = service.spreadsheets().get(spreadSheetId).execute();
+        for (Sheet sheet : spreadsheet.getSheets()) {
+            if (sheet.getProperties().getTitle().equals(sheetTitle)) {
+                return sheet.getProperties().getSheetId();
+            }
+        }
+        throw new IllegalArgumentException("Sheet with title '" + sheetTitle + "' not found");
     }
 
 }

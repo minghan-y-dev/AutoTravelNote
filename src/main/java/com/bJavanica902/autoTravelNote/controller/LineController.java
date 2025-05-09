@@ -28,6 +28,11 @@ public class LineController {
     // Note Attr
     private String url;
 
+    @PostMapping("/printSheetId")
+    public void printSheetId(@RequestBody String nation) throws Exception {
+        googleSheetService.printSheetId(nation);
+    }
+
     @PostMapping("/test")
     public ResponseEntity test() {
         return new ResponseEntity("Hello LineBot", HttpStatus.OK);
