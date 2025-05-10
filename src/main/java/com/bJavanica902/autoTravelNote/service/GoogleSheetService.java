@@ -69,7 +69,7 @@ public class GoogleSheetService {
                                 .setDimension("ROWS")
                                 .setStartIndex(1)
                                 .setEndIndex(2))
-                        .setInheritFromBefore(true));
+                        .setInheritFromBefore(false));
 
                 // 寫入資料到第二行 B~F
                 Request updateCellsRequest = new Request().setUpdateCells(new UpdateCellsRequest()
@@ -152,7 +152,7 @@ public class GoogleSheetService {
                                 .setDimension("ROWS")
                                 .setStartIndex(1)  // row index = 1 => 第 2 行
                                 .setEndIndex(2))
-                        .setInheritFromBefore(true);
+                        .setInheritFromBefore(false);
 
                 // 更新第 2 行資料
                 UpdateCellsRequest updateCellsRequest = new UpdateCellsRequest()
